@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Management Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+        }
+
+        /* Fixed Expansion Logic */
+        .details-container {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        /* Target the container when the previous sibling row is expanded */
+        .expandable-row.expanded + .details-row .details-container {
+            max-height: 1000px; /* Sufficient height for content */
+            opacity: 1;
+        }
+
+        /* Cancel Button Safety Mechanism */
+        .cancel-btn-wrapper {
+            display: inline-flex;
+            align-items: center;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 140px;
+            white-space: nowrap;
+            border-radius: 8px;
+        }
+
+        .cancel-btn-wrapper.confirming {
+            width: 280px;
+            background-color: #fee2e2;
+            border-color: #fca5a5;
+        }
+
+        .cancel-stage-1 {
+            transition: opacity 0.2s, width 0.3s;
+        }
+
+        .cancel-btn-wrapper.confirming .cancel-stage-1 {
+            opacity: 0;
+            width: 0;
+            pointer-events: none;
+        }
+
+        .cancel-stage-2 {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .cancel-btn-wrapper.confirming .cancel-stage-2 {
+            display: flex;
+            opacity: 1;
+        }
+
+        #notification {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            transform: translateY(150%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 50;
+        }
+        #notification.show {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Orders</h1>
+                <p class="text-gray-500">Manage and track your customer shipments</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex gap-3">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">Export CSV</button>
+                <button class="px-4 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 transition shadow-sm">+ Create Order</button>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Order ID</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    <!-- Order Row 1 -->
+                    <tr class="expandable-row hover:bg-gray-50 cursor-pointer transition-colors" onclick="toggleRow(this)">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">#ORD-8241</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Oct 24, 2023</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Sarah Jenkins</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">$124.50</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Processing</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <svg class="w-5 h-5 text-gray-400 inline transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="9 5l7 7-7 7"></path></svg>
+                        </td>
+                    </tr>
+                    <tr class="details-row hidden bg-gray-50/50">
+                        <td colspan="6" class="p-0">
+                            <div class="details-container">
+                                <div class="p-8 border-l-4 border-indigo-500 ml-6 my-4 bg-white rounded-r-lg shadow-inner">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div>
+                                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Shipping Address</h4>
+                                            <p class="text-sm text-gray-700 leading-relaxed font-medium">
+                                                123 Maple Street<br>
+                                                Springfield, IL 62704<br>
+                                                United States
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Order Items</h4>
+                                            <ul class="text-sm text-gray-700 space-y-2 font-medium">
+                                                <li class="flex justify-between"><span>Premium Wireless Headphones</span> <span>x1</span></li>
+                                                <li class="flex justify-between"><span>USB-C Fast Charger</span> <span>x2</span></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Actions Row -->
+                                    <div class="mt-8 pt-6 border-t border-gray-100 flex flex-wrap items-center gap-3">
+                                        <button class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition shadow-sm">
+                                            Complete Order
+                                        </button>
+                                        <button class="px-5 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition">
+                                            Edit Details
+                                        </button>
+                                        
+                                        <!-- Safety Cancel Button -->
+                                        <div class="cancel-btn-wrapper relative bg-gray-50 border border-gray-200" id="cancelWrapper1">
+                                            <button onclick="confirmCancel(event, 'cancelWrapper1')" class="cancel-stage-1 w-full flex items-center justify-center px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition">
+                                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                Cancel Order
+                                            </button>
+                                            
+                                            <div class="cancel-stage-2 w-full flex items-center justify-between px-3 py-1.5">
+                                                <span class="text-xs font-bold text-red-700 uppercase tracking-wider">Are you sure?</span>
+                                                <div class="flex gap-2">
+                                                    <button onclick="resetCancel(event, 'cancelWrapper1')" class="px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 bg-white border border-gray-300 rounded-md shadow-sm">
+                                                        No
+                                                    </button>
+                                                    <button onclick="finalCancel(event, 'ORD-8241')" class="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm">
+                                                        Yes, Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Order Row 2 -->
+                    <tr class="expandable-row hover:bg-gray-50 cursor-pointer transition-colors" onclick="toggleRow(this)">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">#ORD-8242</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Oct 25, 2023</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">Michael Ross</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">$89.00</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Shipped</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <svg class="w-5 h-5 text-gray-400 inline transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="9 5l7 7-7 7"></path></svg>
+                        </td>
+                    </tr>
+                    <tr class="details-row hidden bg-gray-50/50">
+                        <td colspan="6" class="p-0">
+                            <div class="details-container">
+                                <div class="p-8 border-l-4 border-indigo-500 ml-6 my-4 bg-white rounded-r-lg shadow-inner">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div>
+                                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Shipping Address</h4>
+                                            <p class="text-sm text-gray-700 leading-relaxed font-medium">
+                                                789 Blue Avenue<br>
+                                                Seattle, WA 98101<br>
+                                                United States
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Order Items</h4>
+                                            <ul class="text-sm text-gray-700 space-y-2 font-medium">
+                                                <li class="flex justify-between"><span>Ergonomic Mouse</span> <span>x1</span></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-8 pt-6 border-t border-gray-100 flex items-center gap-3">
+                                        <button class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition shadow-sm">
+                                            Track Shipment
+                                        </button>
+                                        
+                                        <div class="cancel-btn-wrapper relative bg-gray-50 border border-gray-200" id="cancelWrapper2">
+                                            <button onclick="confirmCancel(event, 'cancelWrapper2')" class="cancel-stage-1 w-full flex items-center justify-center px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition">
+                                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                Cancel Order
+                                            </button>
+                                            <div class="cancel-stage-2 w-full flex items-center justify-between px-3 py-1.5">
+                                                <span class="text-xs font-bold text-red-700 uppercase tracking-wider">Confirm?</span>
+                                                <div class="flex gap-2">
+                                                    <button onclick="resetCancel(event, 'cancelWrapper2')" class="px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 bg-white border border-gray-300 rounded-md">No</button>
+                                                    <button onclick="finalCancel(event, 'ORD-8242')" class="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-md">Yes</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Notification Overlay -->
+    <div id="notification" class="bg-gray-900 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 border border-gray-700">
+        <div class="bg-green-500/20 p-2 rounded-full">
+            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <span id="notif-text" class="font-medium text-sm">Order cancelled successfully.</span>
+    </div>
+
+    <script>
+        function toggleRow(row) {
+            const nextRow = row.nextElementSibling;
+            const chevron = row.querySelector('.chevron');
+            
+            if (nextRow && nextRow.classList.contains('details-row')) {
+                const isHidden = nextRow.classList.contains('hidden');
+                
+                if (isHidden) {
+                    // Show row first, then animate container
+                    nextRow.classList.remove('hidden');
+                    chevron.classList.add('rotate-90');
+                    // Use requestAnimationFrame for smoother start
+                    requestAnimationFrame(() => {
+                        row.classList.add('expanded');
+                    });
+                } else {
+                    // Animate container closed, then hide row
+                    row.classList.remove('expanded');
+                    chevron.classList.remove('rotate-90');
+                    
+                    // Reset cancel buttons if they were open
+                    const wrappers = nextRow.querySelectorAll('.cancel-btn-wrapper');
+                    wrappers.forEach(w => w.classList.remove('confirming'));
+
+                    setTimeout(() => {
+                        nextRow.classList.add('hidden');
+                    }, 400); // Matches CSS transition time
+                }
+            }
+        }
+
+        function confirmCancel(event, wrapperId) {
+            event.stopPropagation();
+            const wrapper = document.getElementById(wrapperId);
+            wrapper.classList.add('confirming');
+        }
+
+        function resetCancel(event, wrapperId) {
+            event.stopPropagation();
+            const wrapper = document.getElementById(wrapperId);
+            wrapper.classList.remove('confirming');
+        }
+
+        function finalCancel(event, orderId) {
+            event.stopPropagation();
+            
+            const notif = document.getElementById('notification');
+            const text = document.getElementById('notif-text');
+            text.innerText = `Order ${orderId} has been successfully cancelled.`;
+            notif.classList.add('show');
+            
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
